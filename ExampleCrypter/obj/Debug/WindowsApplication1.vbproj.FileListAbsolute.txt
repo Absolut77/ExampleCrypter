@@ -1,0 +1,9 @@
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\bin\Debug\WindowsApplication1.exe
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\bin\Debug\WindowsApplication1.pdb
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\bin\Debug\WindowsApplication1.xml
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.Form1.resources
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.Resources.resources
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.vbproj.GenerateResource.Cache
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.exe
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.xml
+C:\Users\Absolut\AppData\Local\Temporary Projects\WindowsApplication1\obj\Debug\WindowsApplication1.pdb

